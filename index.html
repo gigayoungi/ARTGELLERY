@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>명화 갤러리워크 평가</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 70px)}
+body{font-family:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:#fafafa;color:#1f2937}
+.hl{animation:glow 1.5s ease-out}
+@keyframes glow{0%{box-shadow:0 0 0 4px rgba(168,85,247,.6)}100%{box-shadow:0 0 0 0 rgba(168,85,247,0)}}
+.pop{animation:pop .6s ease-out forwards}
+@keyframes pop{0%{transform:scale(.8);opacity:0}50%{transform:scale(1.4);opacity:1}100%{transform:translateY(-30px);opacity:0}}
+#qrBox svg{width:100%;height:auto;display:block}
+.ns::-webkit-scrollbar{display:none}.ns{scrollbar-width:none}
+</style>
+</head>
+<body class="min-h-screen flex flex-col">
+<header class="sticky top-0 z-40 bg-white border-b shadow-sm">
+ <div class="max-w-xl mx-auto px-4 h-14 flex items-center justify-between">
+  <div class="flex items-center gap-2 cursor-pointer" onclick="window.scrollTo({top:0,behavior:'smooth'})">
+   <svg width="40" height="40" viewBox="0 0 36 36" aria-label="ArtGallery SNS 로고" style="filter:drop-shadow(0 2px 4px rgba(120,40,160,.25))">
+    <defs>
+     <linearGradient id="lg" x1="0.05" y1="0.95" x2="0.95" y2="0.05">
+      <stop offset="0" stop-color="#eab63c"/><stop offset="0.45" stop-color="#e0483f"/>
+      <stop offset="1" stop-color="#9b34c0"/>
+     </linearGradient>
+    </defs>
+    <rect width="36" height="36" rx="11" fill="url(#lg)"/>
+    <path d="M18 7.5C11.9 7.5 7.5 11.7 7.5 17.2C7.5 22.6 11.8 27 16.8 27C18.6 27 19.2 25.8 18.6 24.6C18 23.4 18.4 21.8 20.2 21.8L25 21.8C27 21.8 28.5 20.4 28.5 18.4C28.5 12.3 23.9 7.5 18 7.5Z" fill="#fff"/>
+    <circle cx="13.2" cy="14.4" r="1.5" fill="#e0443c"/><circle cx="18" cy="12.4" r="1.5" fill="#e0443c"/>
+    <circle cx="22.6" cy="14.8" r="1.5" fill="#e0443c"/><circle cx="11.8" cy="19.4" r="1.5" fill="#e0443c"/>
+   </svg>
+   <h1 class="font-bold text-xl text-purple-700">ArtGallery SNS</h1>
+  </div>
+  <div class="flex gap-2">
+   <button id="btnAdd" onclick="show('addModal')" class="bg-purple-600 text-white px-3 py-2 rounded-xl text-sm font-medium">＋ 작품 등록</button>
+   <button onclick="openShare()" class="bg-white border border-purple-300 text-purple-700 px-3 py-2 rounded-xl text-sm font-medium">📱 QR·링크</button>
+   <button onclick="teacherEntry()" class="bg-gray-100 border px-3 py-2 rounded-xl text-sm font-medium">🧑‍🏫 교사</button>
+  </div>
+ </div>
+</header>
+
+<div id="banner" class="text-center text-xs py-1.5 bg-gray-100 text-gray-500">연결 중…</div>
+<main class="flex-1 max-w-xl w-full mx-auto px-3 py-5">
+ <div class="bg-white rounded-2xl p-4 mb-4 border shadow-sm">
+  <div class="flex justify-between mb-2 text-xs font-bold"><span>⚡ 스토리 바로가기</span><button onclick="scrollLatest()" class="text-purple-600">최신 작품 ↓</button></div>
+  <div id="stories" class="flex gap-3 overflow-x-auto ns pb-1"></div>
+ </div>
+ <div class="bg-white rounded-2xl p-4 mb-4 border shadow-sm flex items-center justify-between gap-3">
+  <div><h2 class="font-bold text-base">명화 갤러리워크 평가전 🎨</h2><p class="text-xs text-gray-500">하트, 별점, 따뜻한 댓글을 남겨주세요!</p></div>
+  <select id="sort" onchange="render()" class="bg-gray-50 border rounded-xl px-2 py-2 text-xs">
+   <option value="latest">최신순</option><option value="rating">별점순</option><option value="pop">댓글순</option>
+  </select>
+ </div>
+ <div id="feed" class="space-y-5"></div>
+</main>
+<footer class="text-center text-xs text-gray-400 py-5">ArtGallery SNS Walk</footer>
+
+<!-- 작품 등록 -->
+<div id="addModal" class="fixed inset-0 z-50 bg-black/50 hidden items-center justify-center p-4">
+ <div class="bg-white rounded-3xl max-w-md w-full p-5 max-h-[92vh] overflow-y-auto">
+  <div class="flex justify-between mb-3"><h3 class="font-bold">새 작품 등록</h3><button onclick="hide('addModal')" class="text-gray-500 text-xl">✕</button></div>
+  <form onsubmit="addArt(event)" class="space-y-3 text-sm">
+   <input id="fa" required maxlength="30" placeholder="작가명 (예: 3학년 2반 김예원)" class="w-full bg-gray-50 border rounded-xl px-3 py-2.5">
+   <input id="ft" required maxlength="40" placeholder="작품 제목" class="w-full bg-gray-50 border rounded-xl px-3 py-2.5">
+   <div><p class="text-xs font-semibold text-gray-600 mb-1">작품 사진 (최대 2장, 옆으로 넘겨 볼 수 있어요)</p><div id="slotsAdd" class="space-y-2"></div></div>
+   <textarea id="fd" rows="3" required maxlength="200" placeholder="표현 의도나 작품 설명" class="w-full bg-gray-50 border rounded-xl px-3 py-2.5 resize-none"></textarea>
+   <button class="w-full bg-purple-600 text-white font-medium py-3 rounded-xl">등록 완료</button>
+  </form>
+ </div>
+</div>
+
+<!-- 교사 로그인 -->
+<div id="loginModal" class="fixed inset-0 z-50 bg-black/50 hidden items-center justify-center p-4">
+ <div class="bg-white rounded-3xl max-w-sm w-full p-6 text-center">
+  <div class="text-3xl mb-1">🔒</div>
+  <h3 class="font-bold mb-3">교사 모드 인증</h3>
+  <form onsubmit="login(event)" class="space-y-3">
+   <input id="pw" type="password" required placeholder="비밀번호" class="w-full bg-gray-50 border rounded-xl px-4 py-3 text-center tracking-widest">
+   <div class="flex gap-2">
+    <button type="button" onclick="hide('loginModal')" class="flex-1 bg-gray-100 py-2.5 rounded-xl text-sm">취소</button>
+    <button class="flex-1 bg-purple-600 text-white py-2.5 rounded-xl text-sm">확인</button>
+   </div>
+  </form>
+  <p class="text-[11px] text-gray-400 mt-3">처음 비밀번호는 1234 입니다. 로그인 후 꼭 변경하세요.</p>
+ </div>
+</div>
+
+<!-- 교사 패널 -->
+<div id="dashModal" class="fixed inset-0 z-50 bg-black/60 hidden items-center justify-center p-2">
+ <div class="bg-white rounded-3xl max-w-3xl w-full max-h-[92vh] flex flex-col overflow-hidden">
+  <div class="px-5 py-3 border-b flex justify-between items-center bg-purple-50">
+   <h3 class="font-bold">🧑‍🏫 교사 관리자 패널</h3>
+   <button onclick="hide('dashModal')" class="text-xl text-gray-600">✕</button>
+  </div>
+  <div class="overflow-y-auto p-4 space-y-5">
+   <div><h4 class="text-sm font-bold mb-2">🏆 최우수 작품 TOP 3</h4><div id="podium" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div></div>
+   <div class="bg-gray-50 p-3 rounded-2xl border text-xs text-gray-500">총 작품 <b id="sA" class="text-lg text-gray-900">0</b> · 총 평가 <b id="sC" class="text-lg text-purple-600">0</b></div>
+   <div class="border rounded-2xl p-3 space-y-2">
+    <h4 class="text-sm font-bold">📥 학생 작성 내용 다운로드</h4>
+    <p class="text-xs text-gray-500">학생이 남긴 별점과 댓글 전체, 또는 작품별 요약을 엑셀용 CSV로 저장합니다.</p>
+    <div class="flex flex-wrap gap-2">
+     <button onclick="dlComments()" class="bg-emerald-600 text-white text-xs px-3 py-2 rounded-xl">학생 댓글·별점 CSV</button>
+     <button onclick="dlArts()" class="bg-white border text-xs px-3 py-2 rounded-xl">작품별 요약 CSV</button>
+    </div>
+    <div id="fbWrap" class="hidden"><p class="text-xs text-amber-600 mb-1">저장 기능을 쓸 수 없는 환경이라 내용을 표시했어요. 전체 선택 후 복사해 사용하세요.</p><textarea id="fb" readonly rows="5" class="w-full border rounded-xl p-2 text-xs"></textarea></div>
+   </div>
+   <div id="gateBox" class="border rounded-2xl p-3 space-y-2">
+    <h4 class="text-sm font-bold">🚪 학생 입장 비밀번호</h4>
+    <p id="gateState" class="text-xs text-gray-500"></p>
+    <div class="flex gap-2"><input id="gatePw" placeholder="새 입장 비밀번호 (4자 이상)" autocomplete="off" class="flex-1 min-w-0 border rounded-xl px-3 py-2 text-xs"><button type="button" onclick="setGate()" class="bg-purple-600 text-white text-xs px-3 rounded-xl shrink-0">설정·변경</button><button type="button" onclick="clearGate()" class="bg-white border text-xs px-3 rounded-xl shrink-0">해제</button></div>
+   </div>
+   <form id="pwForm" onsubmit="changePw(event)" class="border rounded-2xl p-3 space-y-2">
+    <h4 class="text-sm font-bold">🔑 비밀번호 변경</h4>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+     <input id="pw0" type="password" required placeholder="현재 비밀번호" autocomplete="off" class="border rounded-xl px-3 py-2 text-xs">
+     <input id="pw1" type="password" required minlength="4" placeholder="새 비밀번호 (4자 이상)" autocomplete="off" class="border rounded-xl px-3 py-2 text-xs">
+     <input id="pw2" type="password" required minlength="4" placeholder="새 비밀번호 확인" autocomplete="off" class="border rounded-xl px-3 py-2 text-xs">
+    </div>
+    <button class="bg-purple-600 text-white text-xs px-4 py-2 rounded-xl">비밀번호 변경하기</button>
+   </form>
+   <div><h4 class="text-sm font-bold mb-2">작품 및 댓글 관리</h4><div id="admin" class="space-y-3"></div></div>
+  </div>
+ </div>
+</div>
+
+<!-- 작품 수정 (교사) -->
+<div id="editModal" class="fixed inset-0 z-[55] bg-black/60 hidden items-center justify-center p-4">
+ <div class="bg-white rounded-3xl max-w-md w-full p-5 max-h-[92vh] overflow-y-auto">
+  <div class="flex justify-between mb-3"><h3 class="font-bold">✏️ 작품 수정</h3><button onclick="hide('editModal')" class="text-gray-500 text-xl">✕</button></div>
+  <form onsubmit="saveEdit(event)" class="space-y-3 text-sm">
+   <input id="ea" required maxlength="30" placeholder="작가명" class="w-full bg-gray-50 border rounded-xl px-3 py-2.5">
+   <input id="et" required maxlength="40" placeholder="작품 제목" class="w-full bg-gray-50 border rounded-xl px-3 py-2.5">
+   <div><p class="text-xs font-semibold text-gray-600 mb-1">작품 사진 (최대 2장)</p><div id="slotsEdit" class="space-y-2"></div></div>
+   <textarea id="ed" rows="3" required maxlength="200" placeholder="작품 설명" class="w-full bg-gray-50 border rounded-xl px-3 py-2.5 resize-none"></textarea>
+   <div class="flex gap-2">
+    <button type="button" onclick="hide('editModal')" class="flex-1 bg-gray-100 py-3 rounded-xl">취소</button>
+    <button class="flex-1 bg-purple-600 text-white font-medium py-3 rounded-xl">수정 저장</button>
+   </div>
+  </form>
+ </div>
+</div>
+
+<!-- QR·링크 -->
+<div id="shareModal" class="fixed inset-0 z-50 bg-black/50 hidden items-center justify-center p-4">
+ <div class="bg-white rounded-3xl max-w-sm w-full p-5 text-center">
+  <div class="flex justify-between mb-2"><h3 class="font-bold">📱 학생 접속용 QR·링크</h3><button onclick="hide('shareModal')" class="text-gray-500 text-xl">✕</button></div>
+  <div id="qrBox" class="w-56 h-56 mx-auto bg-white border rounded-2xl p-2 flex items-center justify-center text-xs text-gray-400">QR 만드는 중…</div>
+  <p class="text-xs text-gray-500 mt-2">카메라로 QR을 찍으면 바로 접속해요.</p>
+  <div class="flex gap-2 mt-3">
+   <input id="shareUrl" readonly class="flex-1 min-w-0 bg-gray-50 border rounded-xl px-3 py-2 text-xs" onfocus="this.select()">
+   <button onclick="copyLink()" class="bg-purple-600 text-white text-xs px-3 rounded-xl shrink-0">복사</button>
+  </div>
+  <button onclick="saveQr()" class="mt-2 w-full bg-white border text-xs py-2 rounded-xl">QR 이미지 저장 (SVG)</button>
+  <p class="text-[11px] text-gray-400 mt-2">학생은 반드시 <b>이 QR·링크</b>로 접속해야 해요 (연결 정보가 들어 있어요). 입장 비밀번호를 설정했다면 함께 알려 주세요.</p>
+ </div>
+</div>
+
+<!-- 학생 입장 비밀번호 -->
+<div id="gate" class="fixed inset-0 z-[80] bg-white hidden items-center justify-center p-6">
+ <form onsubmit="enterGate(event)" class="max-w-xs w-full text-center space-y-3">
+  <div class="text-4xl">🎨</div>
+  <h2 class="font-bold text-lg">ArtGallery SNS</h2>
+  <p class="text-xs text-gray-500">선생님이 알려준 입장 비밀번호를 입력하세요.</p>
+  <input id="gatePwIn" type="password" required placeholder="입장 비밀번호" autocomplete="off" class="w-full bg-gray-50 border rounded-xl px-4 py-3 text-center">
+  <button class="w-full bg-purple-600 text-white font-medium py-3 rounded-xl">입장하기</button>
+ </form>
+</div>
+
+<!-- Firebase 연결 설정 -->
+<div id="setupModal" class="fixed inset-0 z-[70] bg-black/50 hidden items-center justify-center p-4">
+ <div class="bg-white rounded-3xl max-w-md w-full p-5 max-h-[92vh] overflow-y-auto">
+  <div class="flex justify-between mb-2"><h3 class="font-bold">🔌 Firebase 연결 설정</h3><button onclick="hide('setupModal')" class="text-gray-500 text-xl">✕</button></div>
+  <p class="text-xs text-gray-600 mb-2">Firebase 웹 앱 등록 화면에 나온 <b>firebaseConfig 코드</b>를 통째로 복사해서 아래에 붙여 넣고 [연결하기]를 누르세요.</p>
+  <textarea id="cfgText" rows="9" placeholder='const firebaseConfig = {&#10;  apiKey: "...",&#10;  authDomain: "...",&#10;  ...&#10;};' class="w-full border rounded-xl p-2 text-xs font-mono"></textarea>
+  <button onclick="applyCfg()" class="mt-2 w-full bg-purple-600 text-white font-medium py-3 rounded-xl">연결하기</button>
+  <p class="text-[11px] text-gray-400 mt-2">연결 후 📱 QR·링크 버튼에 나오는 링크로 학생을 초대하세요. 이 링크에 연결 정보가 들어 있어요.</p>
+ </div>
+</div>
+
+<div id="toast" class="fixed left-1/2 -translate-x-1/2 bottom-6 z-[60] hidden bg-gray-900 text-white text-sm px-4 py-2 rounded-xl shadow-lg max-w-[90vw] text-center"></div>
+<script>
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function mk(c1, c2, emoji){
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="450"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient></defs><rect width="600" height="450" fill="url(#g)"/><text x="300" y="260" font-size="150" text-anchor="middle">${emoji}</text></svg>`;
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
+const PRESETS = [mk('#facc15','#f97316','🌻'), mk('#38bdf8','#4f46e5','🌊'), mk('#f472b6','#9333ea','🌸'), mk('#34d399','#0f766e','🌿')];
+
+function load(k, d){ try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch(e){ return d; } }
+function save(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch(e){ toast('저장 공간이 부족합니다. 이미지를 작게 올리거나 오래된 작품을 삭제해 주세요.'); return false; } }
+
+const T = Date.now();
+let arts = load('gw_arts', null) || [
+  {id:'art-1', author:'김민준 (1반)', title:'도시 속의 해바라기', image:PRESETS[0], desc:'고흐의 화풍을 차용해 빌딩 숲에서 피어난 희망의 해바라기를 표현했습니다.', likes:12, at:T-18000000,
+   comments:[{id:'c1',name:'이지은',text:'색감이 따뜻하고 인상적이에요!',rating:5,at:T},{id:'c2',name:'박선우',text:'빌딩과 꽃의 조화가 멋져요.',rating:4,at:T}]},
+  {id:'art-2', author:'한서윤 (2반)', title:'푸른 바다의 기억', image:PRESETS[1], desc:'추상 기법으로 심해의 신비로움과 파도의 역동성을 담았습니다.', likes:8, at:T-43200000,
+   comments:[{id:'c3',name:'정다은',text:'실제로 보러 가고 싶은 작품이에요!',rating:5,at:T}]}
+];
+const persist = () => save('gw_arts', arts);
+const pwd = () => load('gw_pw', '1234');
+
+const $ = id => document.getElementById(id);
+function show(id){ $(id).classList.remove('hidden'); $(id).classList.add('flex'); }
+function hide(id){ $(id).classList.add('hidden'); $(id).classList.remove('flex'); }
+const avg = a => a.comments.length ? a.comments.reduce((s,c)=>s+c.rating,0)/a.comments.length : 0;
+
+function pickFile(inp, cb){
+  const f = inp.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = () => { const im = new Image(); im.onload = () => {
+    const s = Math.min(1, 640/im.width), cv = document.createElement('canvas');
+    cv.width = im.width*s; cv.height = im.height*s;
+    cv.getContext('2d').drawImage(im,0,0,cv.width,cv.height);
+    cb(cv.toDataURL('image/jpeg',.6));
+  }; im.src = r.result; };
+  r.readAsDataURL(f);
+}
+let SHARE_URL=location.href.split(/[?#]/)[0];
+let qrSvg='';
+function openShare(){
+  $('shareUrl').value=SHARE_URL;
+  if(!qrSvg){
+    try{ const q=qrcode(0,'M'); q.addData(SHARE_URL); q.make(); qrSvg=q.createSvgTag(6,2); $('qrBox').innerHTML=qrSvg; }
+    catch(e){ $('qrBox').textContent='QR을 만들지 못했어요. 아래 링크를 공유해 주세요.'; }
+  }
+  show('shareModal');
+}
+async function copyLink(){
+  const inp=$('shareUrl');
+  try{ await navigator.clipboard.writeText(SHARE_URL); toast('링크를 복사했어요.'); }
+  catch(e){ inp.focus(); inp.select(); try{ document.execCommand('copy'); toast('링크를 복사했어요.'); }catch(_){ toast('링크를 길게 눌러 복사해 주세요.'); } }
+}
+async function saveQr(){
+  if(!qrSvg) return toast('QR이 아직 없어요.');
+  let d=null; try{ d=window.claude ? await claude.use('downloads') : null; }catch(e){}
+  if(!d) return blobDl('갤러리워크_QR.svg',qrSvg,'image/svg+xml');
+  try{ await d.save({filename:'갤러리워크_QR.svg', data:qrSvg}); toast('저장했습니다.'); }
+  catch(e){ if(!(e && e.code==='declined')) toast('저장하지 못했습니다.'); }
+}
+let mode='local', DB=null, uid=null, isAdmin=false, RO=false;
+const raw={arts:[],comments:[],likes:[]};
+const liked = id => mode==='local' || raw.likes.some(l=>l.id===id+'_'+uid);
+const tooBig = o => JSON.stringify(o).length > 240000;
+async function dbw(fn){
+  try{ await fn(); return true; }
+  catch(e){ const c=e&&e.code; toast(c==='invalid_argument' ? '쓰기 권한이 없거나 내용이 너무 큽니다.' : c==='quota_exceeded' ? '저장 공간이 가득 찼습니다.' : '저장하지 못했습니다. 잠시 후 다시 시도해 주세요.'); return false; }
+}
+function rebuild(){
+  const cm={}, lk={};
+  raw.comments.forEach(c=>{ (cm[c.artId]=cm[c.artId]||[]).push(c); });
+  raw.likes.forEach(l=>{ lk[l.artId]=(lk[l.artId]||0)+1; });
+  arts = raw.arts.map(a=>({...a, comments:(cm[a.id]||[]).sort((x,y)=>x.at-y.at), likes:lk[a.id]||0}));
+}
+function refresh(){ rebuild(); render(); if(!$('dashModal').classList.contains('hidden')) dash(); }
+function setBanner(){
+  const b=$('banner'); let t;
+  if(mode==='shared') t = RO ? ['bg-blue-50 text-blue-700','👀 실시간 공유 중 · 보기 전용입니다 (등록·댓글은 편집 권한이 필요해요)'] : ['bg-emerald-50 text-emerald-700','🟢 실시간 공유 중 · 모두에게 바로 반영돼요'];
+  else t = ['bg-amber-50 text-amber-700','💾 이 기기에만 저장됩니다 (다른 사람과 공유되지 않아요)'];
+  b.className='text-center text-xs py-1.5 '+t[0]; b.textContent=t[1];
+  if(mode!=='shared') b.innerHTML = t[1] + ' · <button class="underline font-bold" onclick="show(\'setupModal\')">Firebase 연결 설정</button>';
+  if(RO) $('btnAdd').classList.add('hidden');
+}
+// ===== Firebase 설정: 콘솔에서 복사한 값으로 바꿔 주세요 (비워 두면 이 기기에만 저장되는 체험 모드) =====
+const FIREBASE_CONFIG = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+/* Firestore 보안 규칙 (콘솔 > Firestore > 규칙):
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{col}/{id} { allow read, write: if col in ['arts','comments','likes','settings']; }
+  }
+}
+*/
+let gateHash='', started=false;
+const lget=k=>{ try{ return localStorage.getItem(k)||''; }catch(e){ return ''; } };
+const lset=(k,v)=>{ try{ localStorage.setItem(k,v); }catch(e){} };
+const b64=o=>btoa(JSON.stringify(o)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+function loadCfg(){
+  let c=null;
+  try{
+    const m=location.hash.match(/cfg=([^&]+)/);
+    if(m){ c=JSON.parse(atob(m[1].replace(/-/g,'+').replace(/_/g,'/'))); if(c&&c.apiKey&&c.projectId&&c.appId) lset('gw_cfg',JSON.stringify(c)); else c=null; history.replaceState(null,'',location.pathname+location.search); }
+  }catch(e){ c=null; }
+  if(!c){ try{ c=JSON.parse(lget('gw_cfg')||'null'); }catch(e){ c=null; } }
+  if(!c && !FIREBASE_CONFIG.apiKey.startsWith('YOUR')) c=FIREBASE_CONFIG;
+  return c;
+}
+const CFG=loadCfg();
+function applyCfg(){
+  const t=$('cfgText').value, c={};
+  ['apiKey','authDomain','projectId','storageBucket','messagingSenderId','appId'].forEach(k=>{ const m=t.match(new RegExp(k+'\\s*:\\s*["\']([^"\']+)["\']')); if(m) c[k]=m[1]; });
+  if(!c.apiKey||!c.projectId||!c.appId) return toast('설정 코드를 찾지 못했어요. firebaseConfig 부분 전체를 복사했는지 확인해 주세요.');
+  lset('gw_cfg',JSON.stringify(c)); location.reload();
+}
+async function sha(t){ const b=await crypto.subtle.digest('SHA-256', new TextEncoder().encode('gw:'+t)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join(''); }
+function getUid(){ let u=lget('gw_uid'); if(!u){ u='u'+Math.random().toString(36).slice(2)+Date.now().toString(36); lset('gw_uid',u); } return u; }
+function blobDl(name,text,type){ const u=URL.createObjectURL(new Blob([text],{type})); const a=document.createElement('a'); a.href=u; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),1000); toast('저장했습니다.'); }
+function makeDB(fs, db){
+  const mkDoc = path => { const r=fs.doc(db,...path.split('/')); return {
+    set:o=>fs.setDoc(r,o), delete:()=>fs.deleteDoc(r),
+    get:async()=>{ const sn=await fs.getDoc(r); return sn.exists()?sn.data():null; } }; };
+  return { doc:mkDoc, collection:name=>({
+    add:o=>fs.addDoc(fs.collection(db,name),o),
+    onSnapshot:(n,e)=>fs.onSnapshot(fs.collection(db,name), sn=>n({docs:sn.docs.map(d=>({id:d.id, data:()=>d.data()}))}), e) }) };
+}
+async function init(){
+  if(!CFG){ setBanner(); render(); return; }
+  SHARE_URL=location.href.split(/[?#]/)[0]+'#cfg='+b64(CFG);
+  try{
+    const B='https://www.gstatic.com/firebasejs/10.12.2/';
+    const [{initializeApp}, fs] = await Promise.all([import(B+'firebase-app.js'), import(B+'firebase-firestore.js')]);
+    DB = makeDB(fs, fs.getFirestore(initializeApp(CFG)));
+  }catch(e){ toast('Firebase에 연결하지 못했습니다. 설정값을 확인해 주세요.'); setBanner(); render(); return; }
+  mode='shared'; arts=[]; uid=getUid();
+  try{ const g=await DB.doc('settings/gate').get(); gateHash=(g&&g.hash)||''; }
+  catch(e){ toast('설정을 불러오지 못했습니다. Firestore 규칙을 확인해 주세요.'); }
+  setBanner();
+  if(gateHash && lget('gw_gate')!==gateHash){ show('gate'); return; }
+  startData();
+}
+function startData(){
+  if(started) return; started=true; render();
+  ['arts','comments','likes'].forEach(k=>DB.collection(k).onSnapshot(
+    sn=>{ raw[k]=sn.docs.map(d=>({...d.data(), id:d.id})); refresh(); },
+    ()=>toast('실시간 연결에 문제가 있습니다. 새로고침해 주세요.')
+  ));
+}
+async function enterGate(e){
+  e.preventDefault();
+  const h=await sha($('gatePwIn').value.trim());
+  if(h===gateHash){ lset('gw_gate',h); hide('gate'); startData(); }
+  else { toast('입장 비밀번호가 맞지 않습니다.'); $('gatePwIn').value=''; }
+}
+function gateInfo(){ $('gateState').textContent = gateHash ? '현재: 설정됨 (학생이 처음 접속할 때 입력해야 해요. 비밀번호 자체는 저장해 두고 기억해 주세요)' : '현재: 설정 안 됨 (누구나 바로 입장)'; }
+async function setGate(){
+  const v=$('gatePw').value.trim(); if(v.length<4) return toast('4자 이상 입력해 주세요.');
+  const h=await sha(v);
+  if(await dbw(()=>DB.doc('settings/gate').set({hash:h}))){ gateHash=h; lset('gw_gate',h); $('gatePw').value=''; gateInfo(); toast('입장 비밀번호를 설정했습니다.'); }
+}
+async function clearGate(){
+  if(await dbw(()=>DB.doc('settings/gate').set({hash:''}))){ gateHash=''; gateInfo(); toast('입장 비밀번호를 해제했습니다.'); }
+}
+function teacherEntry(){ show('loginModal'); }
+
+function addArt(e){
+  e.preventDefault();
+  if(!imgs.add[0]){ toast('사진 1을 올리거나 배경을 선택해 주세요.'); return; }
+  const o={author:$('fa').value.trim(), title:$('ft').value.trim(), image:imgs.add[0], image2:imgs.add[1], desc:$('fd').value.trim(), at:Date.now()};
+  const done=f=>{ f.reset(); [0,1].forEach(i=>clearSlot('add',i)); hide('addModal'); };
+  if(mode==='shared'){
+    if(tooBig(o)) return toast('사진 용량이 너무 큽니다. 더 작은 사진을 써 주세요.');
+    const f=e.target, id='art-'+Date.now()+'-'+Math.random().toString(36).slice(2,6);
+    dbw(()=>DB.doc('arts/'+id).set(o)).then(ok=>{ if(ok) done(f); });
+    return;
+  }
+  arts.unshift({...o, id:'art-'+Date.now(), likes:0, comments:[]});
+  if(!persist()){ arts.shift(); return; }
+  done(e.target); render();
+}
+
+function like(id, ev, onlyAdd){
+  const a = arts.find(x=>x.id===id); if(!a) return;
+  let adding = true;
+  if(mode==='shared'){
+    if(RO || !uid) return toast('좋아요는 로그인한 편집 권한 사용자만 누를 수 있어요.');
+    const lid=id+'_'+uid, has=raw.likes.some(l=>l.id===lid);
+    if(has && onlyAdd) return;
+    adding=!has;
+    dbw(()=> has ? DB.doc('likes/'+lid).delete() : DB.doc('likes/'+lid).set({artId:id, uid}));
+  } else { a.likes=(a.likes||0)+1; persist(); }
+  if(adding){
+    const r = ev.currentTarget.getBoundingClientRect(), h = document.createElement('div');
+    h.textContent = '❤️'; h.className = 'fixed z-50 pointer-events-none text-2xl pop';
+    h.style.left = (r.left + r.width/2 - 12)+'px'; h.style.top = (r.top-10)+'px';
+    document.body.appendChild(h); setTimeout(()=>h.remove(), 600);
+  }
+  if(mode==='local') render();
+}
+function goto(id){
+  const el = $('card-'+id); if(!el) return;
+  el.scrollIntoView({behavior:'smooth', block:'center'});
+  el.classList.add('hl'); setTimeout(()=>el.classList.remove('hl'), 1500);
+}
+function scrollLatest(){ if(arts.length) goto([...arts].sort((a,b)=>b.at-a.at)[0].id); }
+
+const slidePos={};
+function carousel(a){
+  const im=[a.image,a.image2].filter(Boolean), two=im.length>1;
+  const bt='absolute top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/85 hover:bg-white text-gray-800 text-xl leading-none shadow flex items-center justify-center';
+  return `<div class="relative bg-black select-none">
+   <div id="sl-${a.id}" class="flex overflow-x-auto snap-x snap-mandatory ns aspect-[4/3]" style="scroll-behavior:smooth" onscroll="onSl('${a.id}')" ondblclick="like('${a.id}',event,true)">
+    ${im.map((u,i)=>`<img src="${u}" alt="${esc(a.title)} ${i+1}" class="w-full h-full object-cover shrink-0 snap-center" style="min-width:100%">`).join('')}
+   </div>
+   ${two?`<button type="button" onclick="slide('${a.id}',-1)" class="${bt} left-2" aria-label="이전 사진">‹</button>
+   <button type="button" onclick="slide('${a.id}',1)" class="${bt} right-2" aria-label="다음 사진">›</button>
+   <span id="ct-${a.id}" class="absolute top-2 right-2 bg-black/50 text-white text-[11px] px-2 py-0.5 rounded-full">1/2</span>
+   <div id="dt-${a.id}" class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1"><i class="w-1.5 h-1.5 rounded-full bg-white"></i><i class="w-1.5 h-1.5 rounded-full bg-white/50"></i></div>`:''}
+  </div>`;
+}
+function ind(id,i){
+  const c=$('ct-'+id); if(c) c.textContent=(i+1)+'/2';
+  const d=$('dt-'+id); if(d) [...d.children].forEach((x,j)=>{ x.className='w-1.5 h-1.5 rounded-full '+(j===i?'bg-white':'bg-white/50'); });
+}
+function slide(id,d){ const el=$('sl-'+id); if(el) el.scrollTo({left: d>0 ? el.clientWidth : 0, behavior:'smooth'}); }
+function onSl(id){ const el=$('sl-'+id); if(!el) return; const i = el.scrollLeft > el.clientWidth/2 ? 1 : 0; slidePos[id]=i; ind(id,i); }
+function restoreSlides(){
+  for(const id in slidePos){ const el=$('sl-'+id); if(el && slidePos[id]){ el.style.scrollBehavior='auto'; el.scrollLeft=el.clientWidth; el.style.scrollBehavior='smooth'; ind(id,1); } }
+}
+function render(){
+  const st={}; document.querySelectorAll('#feed input,#feed select').forEach(el=>{ if(el.id) st[el.id]=el.value; });
+  const ae=document.activeElement, aid=ae && ae.id, pos=ae && ae.selectionStart;
+  render0(); restoreSlides();
+  for(const k in st){ const el=$(k); if(el) el.value=st[k]; }
+  if(RO) document.querySelectorAll('#feed form').forEach(f=>{ const p=document.createElement('p'); p.className='text-xs text-gray-400 text-center py-1'; p.textContent='보기 전용입니다.'; f.replaceWith(p); });
+  if(aid && $(aid)){ $(aid).focus(); try{ $(aid).setSelectionRange(pos,pos); }catch(e){} }
+}
+function render0(){
+  const v = $('sort').value, s = [...arts];
+  if(v==='latest') s.sort((a,b)=>b.at-a.at);
+  else if(v==='rating') s.sort((a,b)=>avg(b)-avg(a));
+  else s.sort((a,b)=>b.comments.length-a.comments.length);
+
+  $('stories').innerHTML = [...arts].sort((a,b)=>b.at-a.at).map(a=>`
+    <button onclick="goto('${a.id}')" class="flex flex-col items-center gap-1 shrink-0">
+      <div class="w-16 h-16 rounded-full p-[2px] bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-600"><div class="w-full h-full rounded-full bg-white p-[2px]"><img src="${a.image}" class="w-full h-full rounded-full object-cover"></div></div>
+      <span class="text-[11px] w-16 truncate text-center">${esc(a.author.split(' ')[0])}</span>
+    </button>`).join('') || '<p class="text-xs text-gray-400">등록된 작품이 없습니다.</p>';
+
+  $('feed').innerHTML = s.map(a=>`
+  <article id="card-${a.id}" class="bg-white rounded-3xl border shadow-sm overflow-hidden">
+    <div class="p-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-purple-500 to-pink-500 text-white flex items-center justify-center font-bold text-sm">${esc(a.author.charAt(0))}</div>
+        <div><h3 class="font-bold text-sm">${esc(a.author)}</h3><p class="text-xs text-gray-400">갤러리 워크 출품작</p></div>
+      </div>
+      <span class="bg-purple-50 text-purple-700 text-xs font-semibold px-2.5 py-1 rounded-full border border-purple-100">⭐ ${avg(a).toFixed(1)} (${a.comments.length})</span>
+    </div>
+    ${carousel(a)}
+    <div class="px-4 pt-3 flex gap-4 text-sm font-bold">
+      <button onclick="like('${a.id}',event)" class="flex items-center gap-1">${liked(a.id)?'❤️':'🤍'} <span class="text-xs">${a.likes||0}</span></button>
+      <span class="flex items-center gap-1">💬 <span class="text-xs">${a.comments.length}</span></span>
+    </div>
+    <div class="px-4 pb-4 pt-2 space-y-3">
+      <div><h2 class="font-bold">${esc(a.title)}</h2><p class="text-xs text-gray-600 mt-1 leading-relaxed">${esc(a.desc)}</p></div>
+      <form onsubmit="comment(event,'${a.id}')" class="bg-gray-50 rounded-2xl p-3 border space-y-2">
+        <div class="flex justify-between gap-2">
+          <input id="n-${a.id}" required maxlength="20" placeholder="작성자 이름" class="bg-white border rounded-xl px-3 py-1.5 text-xs w-1/3">
+          <select id="r-${a.id}" class="bg-white border rounded-xl px-2 py-1.5 text-xs">
+            <option value="5">⭐⭐⭐⭐⭐ 5점</option><option value="4">⭐⭐⭐⭐ 4점</option><option value="3">⭐⭐⭐ 3점</option><option value="2">⭐⭐ 2점</option><option value="1">⭐ 1점</option>
+          </select>
+        </div>
+        <div class="flex gap-2">
+          <input id="t-${a.id}" required maxlength="150" placeholder="따뜻하고 구체적인 감상평을 남겨주세요" class="flex-1 bg-white border rounded-xl px-3 py-2 text-xs">
+          <button class="bg-purple-600 text-white px-4 rounded-xl text-xs">등록</button>
+        </div>
+      </form>
+      <div class="space-y-2 max-h-44 overflow-y-auto">
+        ${a.comments.length ? a.comments.map(c=>`<div class="bg-gray-50 p-2.5 rounded-xl border text-xs"><b>${esc(c.name)}</b> <span class="text-amber-500">${'⭐'.repeat(c.rating)}</span><p class="text-gray-600 mt-0.5">${esc(c.text)}</p></div>`).join('') : '<p class="text-xs text-gray-400 text-center py-2">첫 평가를 남겨보세요!</p>'}
+      </div>
+    </div>
+  </article>`).join('') || '<div class="bg-white rounded-2xl p-10 text-center text-gray-500 border">등록된 작품이 없습니다.<br><span class="text-xs text-gray-400">상단의 작품 등록 버튼을 눌러보세요!</span></div>';
+}
+
+function comment(e, id){
+  e.preventDefault();
+  const o={artId:id, name:$('n-'+id).value.trim(), text:$('t-'+id).value.trim(), rating:Number($('r-'+id).value), at:Date.now()};
+  if(mode==='shared'){
+    dbw(()=>DB.collection('comments').add(o)).then(ok=>{ if(ok && $('t-'+id)) $('t-'+id).value=''; });
+    return;
+  }
+  const a = arts.find(x=>x.id===id); if(!a) return;
+  a.comments.push({id:'c-'+Date.now(), name:o.name, text:o.text, rating:o.rating, at:o.at});
+  persist(); render();
+}
+
+async function login(e){
+  e.preventDefault();
+  const v=$('pw').value; let ok;
+  if(mode==='shared'){
+    try{ const t=await DB.doc('settings/teacher').get(); ok = (await sha(v)) === ((t&&t.hash) || await sha('1234')); }
+    catch(err){ return toast('확인하지 못했습니다. 연결을 확인해 주세요.'); }
+  } else ok = v===pwd();
+  if(ok){ $('pw').value=''; hide('loginModal'); show('dashModal'); dash(); }
+  else { toast('비밀번호가 올바르지 않습니다.'); $('pw').value=''; }
+}
+async function changePw(e){
+  e.preventDefault();
+  const f=e.target, c=$('pw0').value, a=$('pw1').value, b=$('pw2').value;
+  if(a.length<4) return toast('새 비밀번호는 4자 이상이어야 합니다.');
+  if(a!==b) return toast('새 비밀번호 확인이 일치하지 않습니다.');
+  if(mode==='shared'){
+    const t=await DB.doc('settings/teacher').get();
+    if((await sha(c)) !== ((t&&t.hash) || await sha('1234'))) return toast('현재 비밀번호가 맞지 않습니다.');
+    if(await dbw(async()=>DB.doc('settings/teacher').set({hash:await sha(a)}))){ f.reset(); toast('교사 비밀번호가 변경되었습니다.'); }
+    return;
+  }
+  if(c!==pwd()) return toast('현재 비밀번호가 맞지 않습니다.');
+  if(save('gw_pw',a)){ f.reset(); toast('비밀번호가 변경되었습니다.'); }
+}
+let tt;
+function toast(m){ const t=$('toast'); t.textContent=m; t.classList.remove('hidden'); clearTimeout(tt); tt=setTimeout(()=>t.classList.add('hidden'),2600); }
+function dash(){
+  $('gateBox').classList.toggle('hidden', mode!=='shared'); gateInfo();
+  const sc = arts.map(a=>({...a, av:avg(a), tot:a.comments.reduce((s,c)=>s+c.rating,0)})).sort((x,y)=>y.av-x.av||y.tot-x.tot);
+  const cl = [['1위 👑','bg-amber-50 border-amber-200'],['2위 🥈','bg-slate-50 border-slate-200'],['3위 🥉','bg-orange-50 border-orange-200']];
+  $('podium').innerHTML = sc.slice(0,3).map((a,i)=>`<div class="${cl[i][1]} border rounded-2xl p-3 text-xs"><b class="text-sm">${cl[i][0]}</b><div class="opacity-70 mt-1">${esc(a.author)}</div><div class="font-bold text-sm mb-2">${esc(a.title)}</div><div class="border-t pt-2 flex justify-between"><span>평균 ⭐ ${a.av.toFixed(1)}</span><span>평가 ${a.comments.length}개</span></div></div>`).join('') || '<p class="text-xs text-gray-400">작품이 없습니다.</p>';
+  $('sA').textContent = arts.length;
+  $('sC').textContent = arts.reduce((s,a)=>s+a.comments.length,0);
+  $('admin').innerHTML = arts.map(a=>`
+    <div class="border rounded-2xl p-3 space-y-2">
+      <div class="flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2 min-w-0"><img src="${a.image}" class="w-11 h-11 rounded-xl object-cover"><div class="min-w-0"><div class="font-bold text-sm truncate">${esc(a.title)}</div><div class="text-xs text-gray-500 truncate">${esc(a.author)}</div></div></div>
+        <div class="flex gap-1.5 shrink-0"><button onclick="openEdit('${a.id}')" class="bg-purple-50 text-purple-700 px-3 py-1.5 rounded-xl text-xs">✏️ 수정</button><button onclick="delArt('${a.id}')" class="bg-red-50 text-red-600 px-3 py-1.5 rounded-xl text-xs">삭제</button></div>
+      </div>
+      <div class="bg-gray-50 rounded-xl p-2 space-y-1.5">
+        ${a.comments.length ? a.comments.map(c=>`<div class="flex items-center justify-between bg-white border rounded-lg p-2 text-xs gap-2"><span class="min-w-0"><b>${esc(c.name)}</b> ⭐${c.rating} ${esc(c.text)}</span><button onclick="delCom('${a.id}','${c.id}')" class="text-red-500 shrink-0">✕</button></div>`).join('') : '<p class="text-xs text-gray-400">댓글이 없습니다.</p>'}
+      </div>
+    </div>`).join('') || '<p class="text-xs text-gray-400 text-center">관리할 작품이 없습니다.</p>';
+}
+let pend='';
+function arm(k){ if(pend===k){ pend=''; return true; } pend=k; toast('한 번 더 누르면 삭제됩니다.'); setTimeout(()=>{ if(pend===k) pend=''; },3000); return false; }
+let editId='';
+const imgs={add:['',''],edit:['','']};
+function setSlot(k,i,u){ imgs[k][i]=u; const p=$(k+'prev'+i); p.src=u; p.classList.remove('hidden'); }
+function clearSlot(k,i){ imgs[k][i]=''; $(k+'prev'+i).classList.add('hidden'); const f=$(k+'file'+i); if(f) f.value=''; }
+function slotsHTML(k){ return [0,1].map(i=>`<div class="border rounded-xl p-2 space-y-1.5"><div class="flex justify-between text-xs font-semibold text-gray-600"><span>사진 ${i+1} ${i?'(선택)':'(필수)'}</span>${i?`<button type="button" onclick="clearSlot('${k}',1)" class="text-red-500">제거</button>`:''}</div><input id="${k}file${i}" type="file" accept="image/*" onchange="pickFile(this,u=>setSlot('${k}',${i},u))" class="w-full text-xs"><div class="grid grid-cols-4 gap-1.5">${PRESETS.map((p,j)=>`<button type="button" onclick="setSlot('${k}',${i},PRESETS[${j}])" class="h-9 rounded-lg overflow-hidden border-2 border-transparent hover:border-purple-600"><img src="${p}" class="w-full h-full object-cover"></button>`).join('')}</div><img id="${k}prev${i}" class="hidden w-full h-24 object-cover rounded-lg"></div>`).join(''); }
+$('slotsAdd').innerHTML = slotsHTML('add');
+$('slotsEdit').innerHTML = slotsHTML('edit');
+function openEdit(id){
+  const a = arts.find(x=>x.id===id); if(!a) return;
+  editId=id;
+  $('ea').value=a.author; $('et').value=a.title; $('ed').value=a.desc;
+  const cur=[a.image, a.image2||''];
+  [0,1].forEach(i=>{ if(cur[i]) setSlot('edit',i,cur[i]); else clearSlot('edit',i); });
+  show('editModal');
+}
+function saveEdit(e){
+  e.preventDefault();
+  const a = arts.find(x=>x.id===editId); if(!a) return;
+  if(!imgs.edit[0]) return toast('사진 1은 꼭 필요합니다.');
+  const o={author:$('ea').value.trim(), title:$('et').value.trim(), desc:$('ed').value.trim(), image:imgs.edit[0], image2:imgs.edit[1], at:a.at};
+  if(mode==='shared'){
+    if(tooBig(o)) return toast('사진 용량이 너무 큽니다. 더 작은 사진을 써 주세요.');
+    dbw(()=>DB.doc('arts/'+editId).set(o)).then(ok=>{ if(ok){ hide('editModal'); toast('작품이 수정되어 모두에게 반영됩니다.'); } });
+    return;
+  }
+  const old = {author:a.author, title:a.title, desc:a.desc, image:a.image, image2:a.image2};
+  Object.assign(a, o);
+  if(!persist()){ Object.assign(a, old); return; }
+  hide('editModal'); render(); dash(); toast('작품이 수정되었습니다.');
+}
+
+function delArt(id){
+  if(!arm(id)) return;
+  if(mode==='shared'){
+    dbw(async()=>{
+      await DB.doc('arts/'+id).delete();
+      for(const c of raw.comments.filter(c=>c.artId===id)) await DB.doc('comments/'+c.id).delete();
+      for(const l of raw.likes.filter(l=>l.artId===id)) await DB.doc('likes/'+l.id).delete();
+    });
+    return;
+  }
+  arts = arts.filter(a=>a.id!==id); persist(); render(); dash();
+}
+function delCom(aid, cid){
+  if(!arm(aid+cid)) return;
+  if(mode==='shared'){ dbw(()=>DB.doc('comments/'+cid).delete()); return; }
+  const a = arts.find(x=>x.id===aid); if(a){ a.comments = a.comments.filter(c=>c.id!==cid); persist(); render(); dash(); }
+}
+
+const q = v => { let t=String(v).replace(/\r?\n/g,' '); if(/^[=+\-@]/.test(t)) t="'"+t; return '"'+t.replace(/"/g,'""')+'"'; };
+const fd = t => new Date(t).toLocaleString('ko-KR');
+const today = () => new Date().toISOString().split('T')[0];
+async function saveFile(name, text){
+  let d=null; try{ d = window.claude ? await claude.use('downloads') : null; }catch(e){}
+  if(!d){ blobDl(name,text,'text/csv;charset=utf-8'); return; }
+  try{ await d.save({filename:name, data:text}); toast('저장했습니다.'); }
+  catch(e){ if(e && e.code==='declined') return; toast('저장하지 못했습니다. 다시 시도해 주세요.'); }
+}
+function dlComments(){
+  let o='\uFEFF작품제목,작가명,작성자,별점,댓글,작성일시\n', n=0;
+  arts.forEach(a=>a.comments.forEach(c=>{ n++; o+=[q(a.title),q(a.author),q(c.name),c.rating,q(c.text),q(fd(c.at))].join(',')+'\n'; }));
+  if(!n) return toast('아직 학생이 남긴 댓글이 없습니다.');
+  saveFile('학생_댓글_별점_'+today()+'.csv', o);
+}
+function dlArts(){
+  if(!arts.length) return toast('등록된 작품이 없습니다.');
+  let o='\uFEFF작품제목,작가명,평균별점,별점합계,댓글수,좋아요,등록일시\n';
+  arts.forEach(a=>{ o+=[q(a.title),q(a.author),avg(a).toFixed(1),a.comments.reduce((s,c)=>s+c.rating,0),a.comments.length,a.likes||0,q(fd(a.at))].join(',')+'\n'; });
+  saveFile('작품별_요약_'+today()+'.csv', o);
+}
+
+init();
+</script>
+</body>
+</html>
